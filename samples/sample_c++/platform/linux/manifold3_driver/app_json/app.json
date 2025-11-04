@@ -1,0 +1,38 @@
+{
+    "user_app_id": "172604",
+    "firmware_version": "01.00.00.00",
+    "is_ai_rendering": "false",
+    "platform": "manifold3",
+    "name": {
+        "name_cn": "y_connect_v0",
+        "name_en": "y-connect-v0",
+        "name_jp": "y-connect-v0",
+        "name_fr": "y-connect-v0"
+    },
+    "description": {
+        "description_cn": [
+            "PSDK 指令驱动"
+        ],
+        "description_en": [
+            "PSDK Command Driven"
+        ],
+        "description_jp": [
+            "PSDKコマンド駆動"
+        ],
+        "description_fr": [
+            "Piloté par commande PSDK"
+        ]
+    },
+    "maintainer": {
+        "maintainer_cn": "北京邮电大学",
+        "maintainer_en": "Beijing University of Posts and Telecommunications",
+        "maintainer_jp": "北京郵電大学",
+        "maintainer_fr": "Université des postes et télécommunications de Pékin"
+    },
+    "ver_min": "00.00.00.00",
+    "ver_max": "99.99.99.99",
+    "bin": "../../../../../../build/bin/dji_sdk_driver_on_manifold3",
+    "userconfig": [
+        "../../../../../../samples"
+    ]
+}
