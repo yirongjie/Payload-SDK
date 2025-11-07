@@ -352,8 +352,22 @@ T_DjiReturnCode FlightControllerHandler::reObtainJoystickCtrlAuthority()
         return DJI_ERROR_SYSTEM_MODULE_CODE_NONSUPPORT;
     }
 
-    USER_LOG_INFO("FlightHandler: Re-Requesting joystick control authority (post-mission)...");
-    T_DjiReturnCode ret = DjiFlightController_ObtainJoystickCtrlAuthority(); //
+    // // [新增] 1. 尝试释放控制权，确保状态干净
+    // USER_LOG_INFO("FlightHandler: Explicitly releasing joystick control authority...");
+    // // 即使当前没有控制权，调用此函数也是安全的，因为它有助于清理状态。
+    // DjiFlightController_ReleaseJoystickCtrlAuthority(); 
+    
+    // // 等待一小会，让飞控处理权限释放
+    // T_DjiOsalHandler *osalHandler = DjiPlatform_GetOsalHandler();
+    // if (osalHandler) {
+    //     osalHandler->TaskSleepMs(100); // 100ms 延迟
+    // }
+
+    // // [修改] 2. 重新获取控制权
+    // USER_LOG_INFO("FlightHandler: Re-Requesting joystick control authority (release/obtain cycle)...");
+    // T_DjiReturnCode ret = DjiFlightController_ObtainJoystickCtrlAuthority();
+    
+    // ... (rest of function is the same)
     
     if (ret != DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS)
     {
@@ -365,7 +379,6 @@ T_DjiReturnCode FlightControllerHandler::reObtainJoystickCtrlAuthority()
     }
 
     // (可选但推荐) 等待飞控处理权限切换
-    T_DjiOsalHandler *osalHandler = DjiPlatform_GetOsalHandler();
     if (osalHandler) {
         osalHandler->TaskSleepMs(500); // 等待 500ms
     }

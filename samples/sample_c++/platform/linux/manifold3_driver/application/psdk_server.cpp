@@ -551,6 +551,15 @@ void PSDKServer::executeLongFlightTask(std::string cmd_str, int client_socket)
                 USER_LOG_ERROR("PSDKServer (Task): Flight handler is null, cannot regain control!");
                 task_success = false; 
             }
+            // if (task_success)
+            // {
+            //     // [新增] 成功结束后，发送一个强制悬停（以防万一）
+            //     if (m_flightHandler) {
+            //          m_flightHandler->executeJoystickControl(0, 0, 0, 0, 
+            //                                                 FlightControllerHandler::HorizontalLogic::VELOCITY, 
+            //                                                 FlightControllerHandler::HorizontalCoordinate::BODY);
+            //     }
+            // }
             // [!!!! 修复结束 !!!!]
         }
     }
@@ -700,10 +709,10 @@ void PSDKServer::handleClient(int client_socket)
 
             sendSimpleResponse(client_socket, fc_success ? RESPONSE_CODE_ACCEPTED : RESPONSE_CODE_FAIL);
         }
-        // else if (cmd_name == "fc_regain_ctrl") // [!!!! 在此添加新块 !!!!]
+        // else if (cmd_name == "fc_regain_ctrl") 
         // {
         //     // ----------------------------------------------------
-        //     // [NEW] "瞬时" 飞行命令 (fc_regain_ctrl)
+        //     // [NEW] 强制解锁/重新获取控制权命令
         //     // ----------------------------------------------------
         //     bool fc_success = false;
         //     { 
@@ -716,10 +725,19 @@ void PSDKServer::handleClient(int client_socket)
         //         }
         //         else
         //         {
-        //             // 调用我们新创建的函数
+        //             // 1. 调用我们修改后的 Release/Obtain 函数 (包含等待)
         //             T_DjiReturnCode ret = m_flightHandler->reObtainJoystickCtrlAuthority();
+                    
         //             if (ret == DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS)
         //             {
+        //                 // 2. [关键] 成功夺回控制权后，发送强制悬停指令，**激活摇杆控制模式**
+        //                 USER_LOG_INFO("PSDKServer: Unlock successful. Sending zero-velocity command to activate control mode.");
+        //                 m_flightHandler->executeJoystickControl(0, 0, 0, 0,
+        //                                                        FlightControllerHandler::HorizontalLogic::VELOCITY,
+        //                                                        FlightControllerHandler::HorizontalCoordinate::BODY);
+        //                 T_DjiOsalHandler *osal = DjiPlatform_GetOsalHandler();
+        //                 osal->TaskSleepMs(500); // 确保指令被处理
+                        
         //                 fc_success = true;
         //             }
         //             else
