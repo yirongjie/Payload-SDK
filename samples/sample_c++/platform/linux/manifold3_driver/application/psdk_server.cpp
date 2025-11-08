@@ -8,12 +8,12 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "psdk_server.hpp"
-#include "liveview_camera_handler.hpp" // 包含 camera 类的完整定义
+#include "liveview_camera_handler.hpp"
 #include "flight_controller_handler.hpp"
 #include "waypoint_mission_handler.hpp"
 #include "dji_logger.h"
-#include "dji_platform.h" // <-- [新增] 用于获取 OsalHandler (GetTimeMs, TaskSleepMs)
-#include <cmath>          // <-- 用于 sqrt (计算距离)
+#include "dji_platform.h"
+#include <cmath>
 #include <iomanip>
 
 // C++ 网络与线程库
@@ -33,10 +33,8 @@
 #include <arpa/inet.h>
 #include <unistd.h> // for read, close, write
 #include <memory>
-#include <iomanip> // <-- 用于 std::setprecision (日志)
+#include <iomanip> 
 
-// +++++++++ +++++++++
-// #define M_PI 3.14159265358979323846
 #define EARTH_RADIUS 6371000.0 // meters
 
 /**
@@ -529,8 +527,6 @@ void PSDKServer::executeLongFlightTask(std::string cmd_str, int client_socket)
                 task_success = true; // [新增] 标记成功
             }
             
-            // [!!!! 在此添加修复 !!!!]
-            // 无论任务成功与否，都必须尝试重新获取摇杆控制权
             if (m_flightHandler)
             {
                 USER_LOG_INFO("PSDKServer (Task): Mission finished. Re-obtaining joystick control authority...");
@@ -538,7 +534,6 @@ void PSDKServer::executeLongFlightTask(std::string cmd_str, int client_socket)
                 if (regain_ret != DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS)
                 {
                     USER_LOG_ERROR("PSDKServer (Task): FAILED to re-obtain joystick control, ret=0x%08llX", regain_ret);
-                    // 如果夺回控制权失败，也应视为任务失败
                     task_success = false;
                 }
                 else
@@ -551,16 +546,6 @@ void PSDKServer::executeLongFlightTask(std::string cmd_str, int client_socket)
                 USER_LOG_ERROR("PSDKServer (Task): Flight handler is null, cannot regain control!");
                 task_success = false; 
             }
-            // if (task_success)
-            // {
-            //     // [新增] 成功结束后，发送一个强制悬停（以防万一）
-            //     if (m_flightHandler) {
-            //          m_flightHandler->executeJoystickControl(0, 0, 0, 0, 
-            //                                                 FlightControllerHandler::HorizontalLogic::VELOCITY, 
-            //                                                 FlightControllerHandler::HorizontalCoordinate::BODY);
-            //     }
-            // }
-            // [!!!! 修复结束 !!!!]
         }
     }
 
@@ -709,47 +694,40 @@ void PSDKServer::handleClient(int client_socket)
 
             sendSimpleResponse(client_socket, fc_success ? RESPONSE_CODE_ACCEPTED : RESPONSE_CODE_FAIL);
         }
-        // else if (cmd_name == "fc_regain_ctrl") 
-        // {
-        //     // ----------------------------------------------------
-        //     // [NEW] 强制解锁/重新获取控制权命令
-        //     // ----------------------------------------------------
-        //     bool fc_success = false;
-        //     { 
-        //         std::unique_lock<std::mutex> flight_lock(m_flight_lock);
-        //         USER_LOG_INFO("PSDKServer: Flight lock acquired for short task '%s'.", cmd_name.c_str());
+        else if (cmd_name == "fc_motors") 
+        {
+            // ----------------------------------------------------
+            // DjiFlightController_TurnOnMotors (电机解锁/启动)
+            // ----------------------------------------------------
 
-        //         if (!m_flightHandler)
-        //         {
-        //             USER_LOG_ERROR("PSDKServer: Flight handler not initialized, cannot %s.", cmd_name.c_str());
-        //         }
-        //         else
-        //         {
-        //             // 1. 调用我们修改后的 Release/Obtain 函数 (包含等待)
-        //             T_DjiReturnCode ret = m_flightHandler->reObtainJoystickCtrlAuthority();
-                    
-        //             if (ret == DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS)
-        //             {
-        //                 // 2. [关键] 成功夺回控制权后，发送强制悬停指令，**激活摇杆控制模式**
-        //                 USER_LOG_INFO("PSDKServer: Unlock successful. Sending zero-velocity command to activate control mode.");
-        //                 m_flightHandler->executeJoystickControl(0, 0, 0, 0,
-        //                                                        FlightControllerHandler::HorizontalLogic::VELOCITY,
-        //                                                        FlightControllerHandler::HorizontalCoordinate::BODY);
-        //                 T_DjiOsalHandler *osal = DjiPlatform_GetOsalHandler();
-        //                 osal->TaskSleepMs(500); // 确保指令被处理
-                        
-        //                 fc_success = true;
-        //             }
-        //             else
-        //             {
-        //                 USER_LOG_ERROR("PSDKServer: Command '%s' failed, ret=0x%08llX", cmd_name.c_str(), ret);
-        //             }
-        //         }
-        //         USER_LOG_INFO("PSDKServer: Flight lock released for short task '%s'.", cmd_name.c_str());
-        //     } 
+            bool fc_success = false;
+            { // 创建一个新作用域以持有飞行锁
+                std::unique_lock<std::mutex> flight_lock(m_flight_lock);
+                USER_LOG_INFO("PSDKServer: Flight lock acquired for short task '%s'.", cmd_name.c_str());
 
-        //     sendSimpleResponse(client_socket, fc_success ? RESPONSE_CODE_ACCEPTED : RESPONSE_CODE_FAIL);
-        // }
+                if (!m_flightHandler)
+                {
+                    USER_LOG_ERROR("PSDKServer: Flight handler not initialized, cannot %s.", cmd_name.c_str());
+                }
+                else
+                {
+                    T_DjiReturnCode ret = m_flightHandler->turnOnMotors();
+                    if (ret == DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS)
+                    {
+                        fc_success = true;
+                        USER_LOG_INFO("PSDKServer: Motors turned on successfully.");
+                    }
+                    else
+                    {
+                        USER_LOG_ERROR("PSDKServer: Command '%s' failed, ret=0x%08llX", cmd_name.c_str(), ret);
+                    }
+                }
+                USER_LOG_INFO("PSDKServer: Flight lock released for short task '%s'.", cmd_name.c_str());
+            } // 飞行锁在此处释放
+
+            // 使用正确的函数发送响应: 成功(1) 或 失败(0)
+            sendSimpleResponse(client_socket, fc_success ? RESPONSE_CODE_ACCEPTED : RESPONSE_CODE_FAIL);
+        }
         else if (cmd_name == "fc_pos" || cmd_name == "fc_pos_gnd" || cmd_name == "fc_seq" || cmd_name == "fc_pos_gps"|| cmd_name == "fc_pos_wp")
         {
             // ----------------------------------------------------

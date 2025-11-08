@@ -43,6 +43,11 @@ public:
     bool init();
 
     /**
+    * @brief 启动无人机电机 (解锁)
+    */
+    T_DjiReturnCode turnOnMotors();
+
+    /**
      * @brief 执行起飞
      */
     T_DjiReturnCode takeoff();
