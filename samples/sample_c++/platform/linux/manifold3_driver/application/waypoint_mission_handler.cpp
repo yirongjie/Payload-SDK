@@ -184,6 +184,17 @@ T_DjiReturnCode WaypointMissionHandler::FlyKmzFile(const std::string &kmzFilePat
     std::unique_lock<std::mutex> lock(m_mission_mutex);
     m_mission_cv.wait(lock, [this]{ return !m_isMissionRunning.load(); });
 
+    // --------------------------------------------------------------------------
+    // 任务结束后，显式停止任务，确保飞控退出航点模式
+    // --------------------------------------------------------------------------
+    T_DjiReturnCode stopRet = stopMission(); 
+    if (stopRet != DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS)
+    {
+        // 记录警告，但仍返回成功，因为任务本身已完成
+        USER_LOG_WARN("WaypointHandler(V3): Mission completed, but explicit STOP failed, ret=0x%08llX", stopRet);
+    }
+    // --------------------------------------------------------------------------
+
     USER_LOG_INFO("WaypointHandler(V3): Mission completion signal received. Returning.");
     
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
@@ -263,4 +274,21 @@ T_DjiReturnCode WaypointMissionHandler::ActionStateCallback(T_DjiWaypointV3Actio
     // [!!!! 新代码结束 !!!!]
 
     return DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS;
+}
+
+/**
+ * @brief 停止当前的航点任务
+ */
+T_DjiReturnCode WaypointMissionHandler::stopMission()
+{
+    // 实际 PSDK API: DjiWaypointV3_Action 用于控制任务（启动/停止/暂停）
+    T_DjiReturnCode ret = DjiWaypointV3_Action(DJI_WAYPOINT_V3_ACTION_STOP);
+
+    if (ret != DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS) {
+        USER_LOG_ERROR("WaypointHandler(V3): Failed to stop mission (DjiWaypointV3_Action(STOP)), ret=0x%08llX", ret);
+    } else {
+        USER_LOG_INFO("WaypointHandler(V3): Mission explicitly STOPPED via DjiWaypointV3_Action(STOP).");
+    }
+    
+    return ret;
 }

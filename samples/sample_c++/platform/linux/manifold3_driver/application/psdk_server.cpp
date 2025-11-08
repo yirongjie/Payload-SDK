@@ -694,40 +694,6 @@ void PSDKServer::handleClient(int client_socket)
 
             sendSimpleResponse(client_socket, fc_success ? RESPONSE_CODE_ACCEPTED : RESPONSE_CODE_FAIL);
         }
-        else if (cmd_name == "fc_motors") 
-        {
-            // ----------------------------------------------------
-            // DjiFlightController_TurnOnMotors (电机解锁/启动)
-            // ----------------------------------------------------
-
-            bool fc_success = false;
-            { // 创建一个新作用域以持有飞行锁
-                std::unique_lock<std::mutex> flight_lock(m_flight_lock);
-                USER_LOG_INFO("PSDKServer: Flight lock acquired for short task '%s'.", cmd_name.c_str());
-
-                if (!m_flightHandler)
-                {
-                    USER_LOG_ERROR("PSDKServer: Flight handler not initialized, cannot %s.", cmd_name.c_str());
-                }
-                else
-                {
-                    T_DjiReturnCode ret = m_flightHandler->turnOnMotors();
-                    if (ret == DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS)
-                    {
-                        fc_success = true;
-                        USER_LOG_INFO("PSDKServer: Motors turned on successfully.");
-                    }
-                    else
-                    {
-                        USER_LOG_ERROR("PSDKServer: Command '%s' failed, ret=0x%08llX", cmd_name.c_str(), ret);
-                    }
-                }
-                USER_LOG_INFO("PSDKServer: Flight lock released for short task '%s'.", cmd_name.c_str());
-            } // 飞行锁在此处释放
-
-            // 使用正确的函数发送响应: 成功(1) 或 失败(0)
-            sendSimpleResponse(client_socket, fc_success ? RESPONSE_CODE_ACCEPTED : RESPONSE_CODE_FAIL);
-        }
         else if (cmd_name == "fc_pos" || cmd_name == "fc_pos_gnd" || cmd_name == "fc_seq" || cmd_name == "fc_pos_gps"|| cmd_name == "fc_pos_wp")
         {
             // ----------------------------------------------------

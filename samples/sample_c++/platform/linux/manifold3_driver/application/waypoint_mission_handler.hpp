@@ -58,6 +58,8 @@ private:
     
     // [新增] 静态实例指针，用于回调
     static WaypointMissionHandler *s_instance;
+
+    T_DjiReturnCode stopMission();
 };
 
 #endif // WAYPOINT_MISSION_HANDLER_HPP
