@@ -18,9 +18,12 @@
 #include <string>
 #include <memory> // 用于 std::unique_ptr
 #include <mutex>
+#include "dji_platform.h"
+
 
 // 向前声明
 class LiveviewCameraHandler;
+class CameraHandler;
 class FlightControllerHandler;
 class WaypointMissionHandler;
 
@@ -76,9 +79,12 @@ private:
     bool m_saveLocalCopy; // 标志位：是否本地保存图片
 
     std::mutex m_flight_lock;
-
+#ifdef live_cam
     // PSDKServer 现在拥有 LiveviewCameraHandler
-    std::unique_ptr<LiveviewCameraHandler> m_cameraHandler;
+    std::unique_ptr<LiveviewCameraHandler> ml_cameraHandler;
+#else
+    std::unique_ptr<CameraHandler> m_cameraHandler;
+#endif
 
     std::unique_ptr<FlightControllerHandler> m_flightHandler;
 

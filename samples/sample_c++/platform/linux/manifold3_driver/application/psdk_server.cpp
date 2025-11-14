@@ -8,7 +8,8 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "psdk_server.hpp"
-#include "liveview_camera_handler.hpp"
+// #include "liveview_camera_handler.hpp"
+#include "camera_handler.hpp"
 #include "flight_controller_handler.hpp"
 #include "waypoint_mission_handler.hpp"
 #include "dji_logger.h"
@@ -34,6 +35,8 @@
 #include <unistd.h> // for read, close, write
 #include <memory>
 #include <iomanip> 
+#include "dji_widget_manager.h"
+#include <widget_interaction_test/test_widget_interaction.h>
 
 #define EARTH_RADIUS 6371000.0 // meters
 
@@ -73,17 +76,8 @@ PSDKServer::PSDKServer(int port, bool saveLocalCopy)
       m_running(false),
       m_saveLocalCopy(saveLocalCopy) // 初始化标志位
 {
-    // 1. 初始化相机
-    USER_LOG_INFO("PSDKServer: Initializing Camera Handler...");
-    // 在构造函数中创建内部的 LiveviewCameraHandler
-    E_DjiMountPosition mountPosition = DJI_MOUNT_POSITION_PAYLOAD_PORT_NO1; // XIUGAI
-    m_cameraHandler.reset(new LiveviewCameraHandler(mountPosition));
-
-    if (m_cameraHandler == nullptr)
-    {
-        USER_LOG_ERROR("PSDKServer: Failed to create LiveviewCameraHandler!");
-    }
-
+    T_DjiOsalHandler *osalHandler = DjiPlatform_GetOsalHandler();
+    osalHandler->TaskSleepMs(15000);
     // 2. 初始化飞行控制器
     USER_LOG_INFO("PSDKServer: Initializing Flight Controller...");
     m_flightHandler.reset(new FlightControllerHandler());
@@ -110,6 +104,16 @@ PSDKServer::PSDKServer(int port, bool saveLocalCopy)
         USER_LOG_ERROR("PSDKServer: Failed to initialize WaypointMissionHandler! Waypoint missions DISABLED.");
         m_waypointHandler.reset(); // 初始化失败，释放它
     }
+    // 1. 初始化相机
+    USER_LOG_INFO("PSDKServer: Initializing Camera Handler...");
+    // 在构造函数中创建内部的 LiveviewCameraHandler
+    E_DjiMountPosition mountPosition = DJI_MOUNT_POSITION_PAYLOAD_PORT_NO1; // XIUGAI
+#ifdef live_cam
+    ml_cameraHandler.reset(new LiveviewCameraHandler(mountPosition));
+#else
+    m_cameraHandler.reset(new CameraHandler(mountPosition));
+#endif
+
     
     //
 
@@ -604,13 +608,50 @@ void PSDKServer::handleClient(int client_socket)
         // 3. 解析命令
         if (cmd_name == "tp")
         {
+#ifdef live_cam
             // ----------------------------------------------------
-            // 拍照: "tp [height]" (非阻塞)
+            // 拍照: "tpl [height]" (非阻塞)
             // ----------------------------------------------------
             int height = 0;
             if (!(ss >> height) || (height != 240 && height != 360 && height != 480 && height != 720 && height != 1080))
             {
-                USER_LOG_WARN("PSDKServer: Invalid 'tp' height. (期望 240-1080)");
+                USER_LOG_WARN("PSDKServer: Invalid 'tp' height. (期望 240-2160)");
+                sendSimpleResponse(client_socket, RESPONSE_CODE_FAIL); // 0 = 失败
+            }
+            else
+            {
+                // (拍照逻辑保持不变)
+                std::vector<uint8_t> jpegBuffer;
+                if (!ml_cameraHandler)
+                {
+                    USER_LOG_ERROR("PSDKServer: Camera handler is null, cannot take photo.");
+                    sendSimpleResponse(client_socket, RESPONSE_CODE_FAIL);
+                }
+                else
+                {
+                    T_DjiReturnCode ret = ml_cameraHandler->takePhoto(height, jpegBuffer);
+                    if (ret == DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS)
+                    {
+                        // (可选的本地保存逻辑保持不变)
+                        // ...
+                        uint32_t net_size = htonl(jpegBuffer.size());
+                        send(client_socket, &net_size, sizeof(net_size), 0);
+                        send(client_socket, jpegBuffer.data(), jpegBuffer.size(), 0);
+                    }
+                    else
+                    {
+                        sendSimpleResponse(client_socket, RESPONSE_CODE_FAIL); // 0 字节表示失败
+                    }
+                }
+            }
+#else
+            // ----------------------------------------------------
+            // 拍照: "tp [height]" (非阻塞)
+            // ----------------------------------------------------
+            int height = 0;
+            if (!(ss >> height) || (height != -1 && height != 240 && height != 360 && height != 480 && height != 720 && height != 1080 && height != 2160))
+            {
+                USER_LOG_WARN("PSDKServer: Invalid 'tp' height. (期望 240-2160)");
                 sendSimpleResponse(client_socket, RESPONSE_CODE_FAIL); // 0 = 失败
             }
             else
@@ -639,6 +680,7 @@ void PSDKServer::handleClient(int client_socket)
                     }
                 }
             }
+#endif
         }
         else if (cmd_name == "fc_takeoff" || cmd_name == "fc_land" || cmd_name == "fc_vel" || cmd_name == "fc_vel_gnd")
         {

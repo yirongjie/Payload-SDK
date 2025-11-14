@@ -216,6 +216,10 @@ void LiveviewCameraHandler::payloadCameraStreamCallback(const uint8_t *buf, uint
         USER_LOG_INFO("payloadCameraStreamCallback: Discarded P/B-frame. Waiting for I-frame...");
         return;
     }
+    if (decodeRet == DJI_ERROR_SYSTEM_MODULE_CODE_SUCCESS && !decodedFrame.empty()) {
+        // 输出原始分辨率（宽 x 高）
+        USER_LOG_INFO("原始帧分辨率: %d x %d", decodedFrame.cols, decodedFrame.rows);
+    }
 
     // --- 这是一个 I-frame！ ---
     USER_LOG_INFO("payloadCameraStreamCallback: I-Frame captured!");
